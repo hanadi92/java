@@ -1,0 +1,90 @@
+@prefix XML: <https://en.wikipedia.org/wiki/XML/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<https://en.wikipedia.org/wiki/XML/?browser> XML:implements "XHTML" .
+
+XML:XMLSpec XML:manifestsAs "File" .
+
+XML:relaxNGSpec XML:manifestsAs "File" .
+
+XML:xsdSpec XML:manifestsAs "File" .
+
+XML:adobePDFSpec XML:manifestsAs "File" .
+
+XML:dtdSpec XML:manifestsAs "File" .
+
+XML:Annotation XML:aspectOf "ObjectOrientedProgramming" .
+
+XML:Compilation XML:aspectOf "MetaProgramming" .
+
+XML:Metric XML:aspectOf "QualityAssurance" .
+
+XML:Introspection XML:aspectOf "MetaProgramming" .
+
+XML:CodeCoverage XML:aspectOf "Testing" .
+
+XML:Serialization XML:aspectOf "Persistence" .
+
+XML:Metric XML:aspectOf "ReverseEngineering" .
+
+XML:Verification XML:aspectOf "QualityAssurance" .
+
+XML:Rendering XML:aspectOf "GraphicsProgramming" .
+
+XML:Validation XML:aspectOf "QualityAssurance" , "Testing" .
+
+XML:Semaphore XML:aspectOf "ConcurrentProgramming" .
+
+XML:adobePDFSpec XML:elementOf "PDF" .
+
+XML:XMLSpec XML:elementOf "XHTML" .
+
+XML:xsdSpec XML:elementOf "XHTML" .
+
+XML:dtdSpec XML:elementOf "XHTML" .
+
+XML:relaxNGSpec XML:elementOf "XHTML" .
+
+XML:XSD XML:subsetOf "XML" .
+
+XML:XHTML XML:subsetOf "XML" .
+
+XML:RelaxNGXML XML:subsetOf "XML" .
+
+XML:XMLSpec XML:hasRole "Specification" .
+
+XML:adobePDFSpec XML:hasRole "Specification" .
+
+XML:xsdSpec XML:hasRole "Specification" .
+
+XML:relaxNGSpec XML:hasRole "Specification" .
+
+XML:dtdSpec XML:hasRole "Specification" .
+
+XML:CustomerRelationshipManagement XML:subdomainOf "BusinessProgramming" .
+
+XML:EnterpriseResourcePlanning XML:subdomainOf "BusinessProgramming" .
+
+XML:ECommerce XML:subdomainOf "BusinessProgramming" .
+
+XML:XMLDataBinding XML:subdomainOf "Persistence" .
+
+XML:ObjectRelationalMapping XML:subdomainOf "Persistence" .
+
+XML:OfflineWebApplicationDevelopment XML:subdomainOf "WebApplicationDevelopment" .
+
+XML:Testing XML:subdomainOf "QualityAssurance" .
+
+XML:XML XML:belongsTo "XMLWare" .
+
+XML:relaxNGSpec XML:defines "RelaxNGCompact" .
+
+XML:adobePDFSpec XML:defines "PDF" .
+
+XML:relaxNGSpec XML:defines "RelaxNGXML" .
+
+XML:xsdSpec XML:defines "XSD" .
+
+XML:XMLSpec XML:defines "XML" .
+
+XML:dtdSpec XML:defines "DTD" .
