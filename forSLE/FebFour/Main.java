@@ -22,7 +22,7 @@ public class Main {
 	public static String namespace = "https://en.wikipedia.org/wiki/XML";
 	
 	public static void main(String[] args) throws IOException {
-		String path = "C:/Users/Hanadi/Desktop/Uni/WS1617/SLE/megalib/models/XML.megal";
+		String path = "";
 		MegaModel megaModel = createMegaModel(path);
 		Model RdfModel = createRDFModel();
 		extractRelation(megaModel, RdfModel);
