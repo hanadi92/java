@@ -12,16 +12,17 @@ import java.io.PrintWriter;
 import java.util.Map.Entry;
 import java.util.Set;
 
-//import org.eclipse.rdf4j.model.Statement;
-//import org.eclipse.rdf4j.repository.RepositoryResult;
+import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.util.ModelBuilder;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
+import org.eclipse.rdf4j.query.Update;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
+import org.eclipse.rdf4j.repository.RepositoryResult;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParseException;
@@ -53,12 +54,40 @@ public class ModelRDF {
         extractLinkMap(megaModel, RdfModel);
         extractSubtypes(megaModel, RdfModel);
         Model modelRDF = RdfModel.build();
+        System.out.println("done building the RDF model");
         printOutRDFModel(modelRDF);
-        createDatabase();
-        
+        updateRDF();
+        selectRDF();
 }
+    
+    private static void updateRDF() throws RDFParseException, RepositoryException, IOException {
+    	Repository db = new SailRepository(new MemoryStore());
+    	db.initialize();
+    	try (RepositoryConnection conn = db.getConnection()) {
+    	    try (InputStream input = new FileInputStream(fileName)) {
+    		conn.add(input, "", RDFFormat.TURTLE );
+    	    }
+    	    String queryString  = "prefix XML: <https://en.wikipedia.org/wiki/XML/>\n";
+    		queryString += "INSERT {?x rdfs:label ?y . } WHERE {?x XML:implements ?y }";
+    	    Update query = conn.prepareUpdate(queryString);
+    	    query.execute();
+    	    System.out.println("done executing update query");
+    		try (RepositoryResult<Statement> result = conn.getStatements(null, null, null);) {
+    			PrintWriter writer = new PrintWriter("update.ttl", "UTF-8");
+				while (result.hasNext()) {
+					Statement st = result.next();
+//					System.out.println("db contains: " + st);
+					Rio.write(st, writer, RDFFormat.TURTLE);
+				}
+    		}
+    	    
+    	}
+    	finally {
+    		db.shutDown();
+    	}
+	}
 
-    private static void createDatabase() throws RDFParseException, RepositoryException, IOException {
+	private static void selectRDF() throws RDFParseException, RepositoryException, IOException {
     	// Create a new Repository. Here, we choose a database implementation
     	// that simply stores everything in main memory.
     	Repository db = new SailRepository(new MemoryStore());
@@ -107,6 +136,7 @@ public class ModelRDF {
     	    PrintWriter writer = new PrintWriter(fileName, "UTF-8");
     	    Rio.write(theRDFModel, writer, RDFFormat.TURTLE);
 //    	    Rio.write(theRDFModel, System.out, RDFFormat.TURTLE);
+    	    System.out.println("done writing RDF model into a file");
     	    writer.close();
     	} catch (IOException e) {
     		System.out.println("Something went wrong in writing the ttl file.");
