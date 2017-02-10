@@ -10,18 +10,18 @@ import java.util.Map.Entry;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Model;
-import org.eclipse.rdf4j.model.Statement;
+//import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.impl.TreeModel;
-import org.eclipse.rdf4j.model.util.ModelBuilder;
+//import org.eclipse.rdf4j.model.util.ModelBuilder;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
-import org.eclipse.rdf4j.repository.RepositoryResult;
+//import org.eclipse.rdf4j.repository.RepositoryResult;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParseException;
@@ -62,12 +62,12 @@ public class TreeModelRDF {
     		conn.add(input, "", RDFFormat.TURTLE );
     	    }
     		// let's check that our data is actually in the database
-    		try (RepositoryResult<Statement> result = conn.getStatements(null, null, null);) {
-    			while (result.hasNext()) {
-    				Statement st = result.next();
+//    		try (RepositoryResult<Statement> result = conn.getStatements(null, null, null);) {
+//    			while (result.hasNext()) {
+//    				Statement st = result.next();
 //    				System.out.println("db contains: " + st);
-    			}
-    		}
+//    			}
+//    		}
     		// We do a simple SPARQL SELECT-query that retrieves all resources of
     		// type `ex:Artist`, and their first names.
     	    String queryString = "SELECT ?x";
