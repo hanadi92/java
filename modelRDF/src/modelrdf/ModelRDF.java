@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.util.Map.Entry;
+import java.util.Scanner;
 import java.util.Set;
 
 import org.eclipse.rdf4j.model.Statement;
@@ -38,103 +39,69 @@ import org.java.megalib.models.Relation;
  */
 public class ModelRDF {
     
-    public static String prefix = "XML";
-    public static String namespace = "https://en.wikipedia.org/wiki/XML/";
-    public static String fileName = "rdfmodel.ttl";
+    public static String prefix;
+    public static String namespace;
+    public static String fileName;
+    public static String query;
+    public static String updateFile;
     
     /**
      * @param args the command line arguments
      * @throws java.io.IOException
      */
     public static void main(String[] args) throws IOException {
-        String path = "../models/XML.megal";
+    	
+    	// taking in user input
+        String moduleName = userInput("module");
+        String path = "../models/" + moduleName + ".megal";
+        prefix = moduleName;
+        namespace = userInput("module link");
+        
+        // creating the megaModel and RDFModel
         MegaModel megaModel = createMegaModel(path);
         ModelBuilder RdfModel = createRDFModel();
+        
+        // extracting and adding relations to the builder
         extractRelationshipInstance(megaModel, RdfModel);
         extractInstanceOf(megaModel, RdfModel);
         extractRelationshipDeclaration(megaModel, RdfModel);
         extractLinkMap(megaModel, RdfModel);
         extractSubtypes(megaModel, RdfModel);
+        
+        // build the model builder...
         Model modelRDF = RdfModel.build();
         System.out.println("done building the RDF model");
-        printOutRDFModel(modelRDF);
-        updateRDF();
-        selectRDF();
+        
+        // printing out the RDF Model in a file
+        fileName = userInput("filename to save the turtle RDF in") + ".ttl";
+        printOutRDFModel(modelRDF, fileName);
+        
+        // handles SELECT queries
+        query = userInput("SELECT Query");
+        selectRDF(query);
+        
+        // handles UPDATE queries
+        query = userInput("UPDATE Query");
+        updateFile = userInput("file name to save the updated turtle RDF in") + ".ttl";
+        updateRDF(query, updateFile);
 }
-    
-    private static void updateRDF() throws RDFParseException, RepositoryException, IOException {
-    	Repository db = new SailRepository(new MemoryStore());
-    	db.initialize();
-    	try (RepositoryConnection conn = db.getConnection()) {
-    	    try (InputStream input = new FileInputStream(fileName)) {
-    		conn.add(input, "", RDFFormat.TURTLE );
-    	    }
-    	    String queryString  = "prefix XML: <https://en.wikipedia.org/wiki/XML/>\n";
-    		queryString += "INSERT {?x rdfs:label ?y . } WHERE {?x XML:implements ?y }";
-    	    Update query = conn.prepareUpdate(queryString);
-    	    query.execute();
-    	    System.out.println("done executing update query");
-    		try (RepositoryResult<Statement> result = conn.getStatements(null, null, null);) {
-    			PrintWriter writer = new PrintWriter("update.ttl", "UTF-8");
-				while (result.hasNext()) {
-					Statement st = result.next();
-//					System.out.println("db contains: " + st);
-					Rio.write(st, writer, RDFFormat.TURTLE);
-				}
-    		}
-    	    
-    	}
-    	finally {
-    		db.shutDown();
-    	}
+    /**
+     * @param p String for specific input
+     * @return s userInput
+     */
+	private static String userInput(String p) {
+    	@SuppressWarnings("resource")
+		Scanner scan = new Scanner(System.in);
+    	System.out.println("Please enter the chosen " + p +" : ");
+        String s = scan.nextLine();
+		return s;
 	}
-
-	private static void selectRDF() throws RDFParseException, RepositoryException, IOException {
-    	// Create a new Repository, and a database implementation that stores everything in main memory
-    	Repository db = new SailRepository(new MemoryStore());
-    	db.initialize();
-    	try (RepositoryConnection conn = db.getConnection()) {
-    	    try (InputStream input = new FileInputStream(fileName)) {
-    		conn.add(input, "", RDFFormat.TURTLE );
-    	    }
-//    		try (RepositoryResult<Statement> result = conn.getStatements(null, null, null);) {
-//    			while (result.hasNext()) {
-//    				Statement st = result.next();
-//    				System.out.println("db contains: " + st);
-//    			}
-//    		}
-    		String queryString  = "prefix XML: <https://en.wikipedia.org/wiki/XML/>\n";
-    		queryString  += "prefix xsd: <http://www.w3.org/2001/XMLSchema#>\n";
-    		queryString += "SELECT ?x ?y WHERE { ?x XML:implements ?y }";
-    	    TupleQuery query = conn.prepareTupleQuery(queryString);
-    	    try (TupleQueryResult result = query.evaluate()) {
-    	    	System.out.println("\nThe Query: " + queryString + "\n");
-	    		while (result.hasNext()) {
-	    		    BindingSet solution = result.next();
-	    		    System.out.println(solution);
-//	    		    System.out.println("?x = " + solution.getValue("x"));
-//	    		    System.out.println("?y = " + solution.getValue("y"));
-	    		}
-    	    }
-    	}
-    	finally {
-    		db.shutDown();
-    	}
-	}
-
-	private static void printOutRDFModel(Model theRDFModel) {
-    	try{
-    	    PrintWriter writer = new PrintWriter(fileName, "UTF-8");
-    	    Rio.write(theRDFModel, writer, RDFFormat.TURTLE);
-//    	    Rio.write(theRDFModel, System.out, RDFFormat.TURTLE);
-    	    System.out.println("done writing RDF model into a file");
-    	    writer.close();
-    	} catch (IOException e) {
-    		System.out.println("Something went wrong in writing the ttl file.");
-    	}
-    }
-
-    public static MegaModel createMegaModel (String filepath) throws IOException {
+	/**
+	 * @param filepath
+	 * @return mM MegaModel
+	 * @throws IOException
+	 */
+	public static MegaModel createMegaModel (String filepath) throws IOException {
         ModelLoader ml = new ModelLoader();
         ml.loadFile(filepath);
         System.out.println("done loading file");
@@ -142,15 +109,21 @@ public class ModelRDF {
         System.out.println("done getting mega model");
         return mM;
     }
-	
+    /**
+     * @return builder ModelBuilder
+     */
     public static ModelBuilder createRDFModel() {
 		ModelBuilder builder = new ModelBuilder();
 		builder.setNamespace(prefix, namespace);
 		System.out.println("done creating RDF model");
         return builder;
     }
-	
-    // getting RelationshipInstanceMap x : z y
+    
+    /**
+     * getting RelationshipInstanceMap x : z y
+     * @param mm MegaModel
+     * @param rdfModel
+     */
     public static void extractRelationshipInstance(MegaModel mm, ModelBuilder rdfModel) {
         for (Entry<String, Set<Relation>> entry : 
             mm.getRelationshipInstanceMap().entrySet()) {
@@ -165,7 +138,11 @@ public class ModelRDF {
         System.out.println("done adding relationship instances");
     }
 	
-    // getting instanceOfMap x : y
+    /**
+     * getting instanceOfMap x : y
+     * @param mm
+     * @param rdfModel
+     */
     public static void extractInstanceOf(MegaModel mm, ModelBuilder rdfModel) {
     	for (Entry<String, String> entry :
     		mm.getInstanceOfMap().entrySet()) {
@@ -177,7 +154,11 @@ public class ModelRDF {
     	System.out.println("done adding Instances of relationships");
     }
     
-    // getting RelationshipDeclarationMap z < x # y
+    /**
+     * getting RelationshipDeclarationMap z < x # y
+     * @param mm
+     * @param rdfModel
+     */
     public static void extractRelationshipDeclaration(MegaModel mm, ModelBuilder rdfModel) {   	
     	for (Entry<String, Set<Relation>> entry:
     		mm.getRelationshipDeclarationMap().entrySet()) {
@@ -192,7 +173,11 @@ public class ModelRDF {
     	System.out.println("done adding relationship declarations");
     }
     
-    // getting LinkMap z = ""
+    /**
+     * getting LinkMap z = ""
+     * @param mm
+     * @param rdfModel
+     */
     public static void extractLinkMap(MegaModel mm, ModelBuilder rdfModel) {
     	for (Entry<String, Set<String>> entry:
     		mm.getLinkMap().entrySet()) {
@@ -206,7 +191,11 @@ public class ModelRDF {
     	System.out.println("done adding links");
     }
     
-    // geting Subtypes x < y
+    /**
+     * geting Subtypes x < y
+     * @param mm
+     * @param rdfModel
+     */
     public static void extractSubtypes(MegaModel mm, ModelBuilder rdfModel) {
     	for (Entry<String, String> entry:
     		mm.getSubtypesMap().entrySet()) {
@@ -217,27 +206,102 @@ public class ModelRDF {
     	System.out.println("done adding subtypes");    	
     }
 
-    // adding statements
-    public static void _addRelations(ModelBuilder rdfModel, String subject, String predicate, String object) {
+    /**
+     * adding statements from relations
+     * @param rdfModel
+     * @param subject
+     * @param predicate
+     * @param object
+     */
+    private static void _addRelations(ModelBuilder rdfModel, String subject, String predicate, String object) {
     	rdfModel.subject("XML:" + subject).add("XML:" + predicate, object);
     }
     
+    /**
+     * printing out RDFModels in data.ttl
+     * @param theRDFModel
+     */
+	private static void printOutRDFModel(Model theRDFModel, String filenm) {
+    	try{
+    	    PrintWriter writer = new PrintWriter(filenm, "UTF-8");
+    	    Rio.write(theRDFModel, writer, RDFFormat.TURTLE);
+    	    System.out.println("done writing RDF model into " + filenm);
+    	    writer.close();
+    	} catch (IOException e) {
+    		System.out.println("Something went wrong in writing the ttl file.\n");
+    	}
+    }
+	
+	/**
+	 * executing SELECT queries
+	 * @param selectQuery
+	 * @throws RDFParseException
+	 * @throws RepositoryException
+	 * @throws IOException
+	 */
+    private static void selectRDF(String selectQuery) throws RDFParseException, RepositoryException, IOException {
+    	// Create a new Repository, and a database implementation that stores everything in main memory
+    	Repository db = new SailRepository(new MemoryStore());
+    	db.initialize();
+    	try (RepositoryConnection conn = db.getConnection()) {
+    	    try (InputStream input = new FileInputStream(fileName)) {
+    	    	conn.add(input, "", RDFFormat.TURTLE );
+    	    }
+    		String queryString = "prefix " + prefix + ": " + "<" + namespace + ">\n";
+    		queryString += selectQuery;
+    	    TupleQuery query = conn.prepareTupleQuery(queryString);
+    	    try (TupleQueryResult result = query.evaluate()) {
+    	    	System.out.println("\nThe Query:\n" + queryString + "\n");
+	    		while (result.hasNext()) {
+	    		    BindingSet solution = result.next();
+	    		    System.out.println(solution);
+	    		    //System.out.println("?x = " + solution.getValue("x"));
+	    		    //System.out.println("?y = " + solution.getValue("y"));    		    	
+	    		}
+    	    }
+    	}
+    	finally {
+    		db.shutDown();
+    	}
+	}
+    
+    /**
+     * executing UPDATE queries
+     * @param updateQuery
+     * @throws RDFParseException
+     * @throws RepositoryException
+     * @throws IOException
+     */
+    private static void updateRDF(String updateQuery, String filenm) throws RDFParseException, RepositoryException, IOException {
+    	Repository db = new SailRepository(new MemoryStore());
+    	db.initialize();
+    	try (RepositoryConnection conn = db.getConnection()) {
+    	    try (InputStream input = new FileInputStream(fileName)) {
+    	    	conn.add(input, "", RDFFormat.TURTLE );
+    	    }
+    	    String queryString = "prefix " + prefix + ": " + "<" + namespace + ">\n";
+    		queryString += updateQuery;
+    	    Update query = conn.prepareUpdate(queryString);
+    	    query.execute();
+    		try (RepositoryResult<Statement> result = conn.getStatements(null, null, null);) {
+    			PrintWriter writer = new PrintWriter(filenm, "UTF-8");
+				while (result.hasNext()) {
+					Statement st = result.next();
+					// System.out.println("db contains: " + st);
+					Rio.write(st, writer, RDFFormat.TURTLE);
+				}
+    		}
+    		System.out.println("done executing update query please check file " + filenm);
+    	}
+    	finally {
+    		db.shutDown();
+    	}
+	}    
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// XML
+// https://en.wikipedia.org/wiki/XML/
+// SELECT ?x ?y WHERE { ?x XML:implements ?y }
+// INSERT {?x rdfs:label ?y . } WHERE {?x XML:implements ?y }
 
 
 
