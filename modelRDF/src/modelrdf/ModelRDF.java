@@ -54,7 +54,14 @@ public class ModelRDF {
     	// taking in user input
         String moduleName = userInput("module");
         String path = "../models/" + moduleName + ".megal";
-        prefix = moduleName;
+        
+        if(moduleName.contains("/")) {
+        	String[] words = moduleName.split("/");
+        	String lastword = words[words.length-1];
+        	prefix = lastword;
+        } else {
+        	prefix = moduleName;
+        }
         namespace = userInput("module link");
         
         // creating the megaModel and RDFModel
@@ -214,7 +221,7 @@ public class ModelRDF {
      * @param object
      */
     private static void _addRelations(ModelBuilder rdfModel, String subject, String predicate, String object) {
-    	rdfModel.subject("XML:" + subject).add("XML:" + predicate, object);
+    	rdfModel.subject(prefix + ":" + subject).add(prefix + ":" + predicate, object);
     }
     
     /**
@@ -258,6 +265,7 @@ public class ModelRDF {
 	    		    //System.out.println("?x = " + solution.getValue("x"));
 	    		    //System.out.println("?y = " + solution.getValue("y"));    		    	
 	    		}
+	    	    System.out.println("end of query results\n");
     	    }
     	}
     	finally {
