@@ -5,17 +5,29 @@
  */
 package modelrdf;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.util.Map.Entry;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 import java.util.Set;
+import java.util.regex.Pattern;
 
+import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Literal;
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Model;
+import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.impl.LinkedHashModel;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.util.ModelBuilder;
+import org.eclipse.rdf4j.model.util.RDFCollections;
+import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
@@ -30,6 +42,7 @@ import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
 import org.java.megalib.checker.services.ModelLoader;
+import org.java.megalib.models.Function;
 import org.java.megalib.models.MegaModel;
 import org.java.megalib.models.Relation;
 
@@ -39,75 +52,80 @@ import org.java.megalib.models.Relation;
  */
 public class ModelRDF {
     
-    public static String prefix;
-    public static String namespace;
+    public static String prefix = "megal";
+    public static String namespace = "http://megal.org/";
     public static String fileName;
     public static String query;
     public static String updateFile;
     
-    /**
-     * @param args the command line arguments
-     * @throws java.io.IOException
-     */
-    public static void main(String[] args) throws IOException {
-    	
-    	// taking in user input
-        String moduleName = userInput("module");
-        String path = "../models/" + moduleName + ".megal";
+
+    public static void main(String[] args) throws IOException {    	
+        // create an empty RDF model
+        ModelBuilder RdfModel = createRDFModel(prefix, namespace);
         
-        if(moduleName.contains("/")) {
-        	String[] words = moduleName.split("/");
-        	String lastword = words[words.length-1];
-        	prefix = lastword;
-        } else {
-        	prefix = moduleName;
-        }
-        namespace = userInput("module link");
+        // get all mega model paths
+        List<String> modelNames = getAllModels("../models");
         
-        // creating the megaModel and RDFModel
-        MegaModel megaModel = createMegaModel(path);
-        ModelBuilder RdfModel = createRDFModel();
+        // create mega models and fill RDF with relations
+        for (String m : modelNames) {
+			String[] strings = m.split("/");
+			String[] parts = strings[strings.length - 1].split(Pattern.quote("."));
+			String moduleName = parts[0];
+			prefix = moduleName;
+			namespace = "http://" + moduleName + ".org/";
+			MegaModel megaModel = createMegaModel(m);
+			
+			extractRelationshipInstance(megaModel, RdfModel);
+			extractInstanceOf(megaModel, RdfModel);
+			extractRelationshipDeclaration(megaModel, RdfModel);
+			extractLinkMap(megaModel, RdfModel);
+			extractSubtypes(megaModel, RdfModel);
+			extractFunctions(moduleName, megaModel, RdfModel, true);
+			extractFunctions(moduleName, megaModel, RdfModel, false);
+		}
         
-        // extracting and adding relations to the builder
-        extractRelationshipInstance(megaModel, RdfModel);
-        extractInstanceOf(megaModel, RdfModel);
-        extractRelationshipDeclaration(megaModel, RdfModel);
-        extractLinkMap(megaModel, RdfModel);
-        extractSubtypes(megaModel, RdfModel);
-        
-        // build the model builder...
+        // build the rdf model
         Model modelRDF = RdfModel.build();
         System.out.println("done building the RDF model");
         
         // printing out the RDF Model in a file
-        fileName = userInput("filename to save the turtle RDF in") + ".ttl";
+        fileName = "Megals.ttl";
         printOutRDFModel(modelRDF, fileName);
         
         // handles SELECT queries
-        query = userInput("SELECT Query");
-        selectRDF(query);
+//        query = userInput("SELECT Query");
+//        selectRDF(query);
         
         // handles UPDATE queries
-        query = userInput("UPDATE Query");
-        updateFile = userInput("file name to save the updated turtle RDF in") + ".ttl";
-        updateRDF(query, updateFile);
+//        query = userInput("UPDATE Query");
+//        updateFile = userInput("file name to save the updated turtle RDF in") + ".ttl";
+//        updateRDF(query, updateFile);
 }
-    /**
-     * @param p String for specific input
-     * @return s userInput
-     */
-	private static String userInput(String p) {
-    	@SuppressWarnings("resource")
-		Scanner scan = new Scanner(System.in);
-    	System.out.println("Please enter the chosen " + p +" : ");
-        String s = scan.nextLine();
-		return s;
+
+    public static List<String> getAllModels(String directory){ 
+		File folder = new File(directory);
+		File[] listOfFiles = folder.listFiles();
+		List<String> fileNames = new ArrayList<>();	
+		try{
+		    for (int i = 0; i < listOfFiles.length; i++) {
+		      if (listOfFiles[i].isFile()) {
+		    	  String path = listOfFiles[i].getPath();
+		    	  if(!path.endsWith("md")) {
+		    		  fileNames.add(path);
+		    	  }
+		      } else if (listOfFiles[i].isDirectory()) {
+		    	  String dir = listOfFiles[i].getName();		        
+		    	  String newDirectory = directory + "/" + dir;
+		    	  getAllModels(newDirectory);
+		      }
+		    }
+		}
+		catch(NullPointerException e) {
+			System.out.println(e);
+		}
+		return fileNames;
 	}
-	/**
-	 * @param filepath
-	 * @return mM MegaModel
-	 * @throws IOException
-	 */
+	
 	public static MegaModel createMegaModel (String filepath) throws IOException {
         ModelLoader ml = new ModelLoader();
         ml.loadFile(filepath);
@@ -116,21 +134,14 @@ public class ModelRDF {
         System.out.println("done getting mega model");
         return mM;
     }
-    /**
-     * @return builder ModelBuilder
-     */
-    public static ModelBuilder createRDFModel() {
+    
+    public static ModelBuilder createRDFModel(String prfx, String nmspace) {
 		ModelBuilder builder = new ModelBuilder();
-		builder.setNamespace(prefix, namespace);
+		builder.setNamespace(prfx, nmspace);
 		System.out.println("done creating RDF model");
         return builder;
     }
     
-    /**
-     * getting RelationshipInstanceMap x : z y
-     * @param mm MegaModel
-     * @param rdfModel
-     */
     public static void extractRelationshipInstance(MegaModel mm, ModelBuilder rdfModel) {
         for (Entry<String, Set<Relation>> entry : 
             mm.getRelationshipInstanceMap().entrySet()) {
@@ -139,33 +150,23 @@ public class ModelRDF {
             for(Relation i: megaRl) {
             	String subject = i.getSubject();
             	String object = i.getObject();
-                _addRelations(rdfModel, subject, predicate, object);
+                _addRelations(rdfModel, subject, predicate, object, false);
             }
         }
         System.out.println("done adding relationship instances");
     }
 	
-    /**
-     * getting instanceOfMap x : y
-     * @param mm
-     * @param rdfModel
-     */
     public static void extractInstanceOf(MegaModel mm, ModelBuilder rdfModel) {
     	for (Entry<String, String> entry :
     		mm.getInstanceOfMap().entrySet()) {
     		String subject = entry.getKey();
     		String object = entry.getValue();
-    		_addRelations(rdfModel, subject, "instanceOf", object);
+    		_addRelations(rdfModel, subject, "instanceOf", object, false);
     		
     	}
     	System.out.println("done adding Instances of relationships");
     }
     
-    /**
-     * getting RelationshipDeclarationMap z < x # y
-     * @param mm
-     * @param rdfModel
-     */
     public static void extractRelationshipDeclaration(MegaModel mm, ModelBuilder rdfModel) {   	
     	for (Entry<String, Set<Relation>> entry:
     		mm.getRelationshipDeclarationMap().entrySet()) {
@@ -174,17 +175,12 @@ public class ModelRDF {
     		for (Relation i: megaRl) {
     			String subject = i.getSubject();
     			String object = i.getObject();
-    			_addRelations(rdfModel, subject, predicate, object);
+    			_addRelations(rdfModel, subject, predicate, object, false);
     		}
     	}
     	System.out.println("done adding relationship declarations");
     }
-    
-    /**
-     * getting LinkMap z = ""
-     * @param mm
-     * @param rdfModel
-     */
+
     public static void extractLinkMap(MegaModel mm, ModelBuilder rdfModel) {
     	for (Entry<String, Set<String>> entry:
     		mm.getLinkMap().entrySet()) {
@@ -192,42 +188,105 @@ public class ModelRDF {
     		Set<String> link = entry.getValue();
     		for (String i: link) {
     			String object = i;
-    			_addRelations(rdfModel, subject, "Link", object);
+    			_addRelations(rdfModel, subject, "Link", object, false);
     		}
     	}
     	System.out.println("done adding links");
     }
-    
-    /**
-     * geting Subtypes x < y
-     * @param mm
-     * @param rdfModel
-     */
+
     public static void extractSubtypes(MegaModel mm, ModelBuilder rdfModel) {
     	for (Entry<String, String> entry:
     		mm.getSubtypesMap().entrySet()) {
     		String subject = entry.getKey();
     		String object = entry.getValue();
-    		_addRelations(rdfModel, subject, "SubTypeOf", object);
+    		_addRelations(rdfModel, subject, "SubTypeOf", object, false);
     	}
     	System.out.println("done adding subtypes");    	
     }
-
-    /**
-     * adding statements from relations
-     * @param rdfModel
-     * @param subject
-     * @param predicate
-     * @param object
-     */
-    private static void _addRelations(ModelBuilder rdfModel, String subject, String predicate, String object) {
-    	rdfModel.subject(prefix + ":" + subject).add(prefix + ":" + predicate, object);
-    }
     
-    /**
-     * printing out RDFModels in data.ttl
-     * @param theRDFModel
-     */
+    public static void extractFunctions(String modelname, MegaModel mm,
+    		ModelBuilder rdfModel, boolean flag) {
+    	ValueFactory vf = SimpleValueFactory.getInstance();
+    	String subject = modelname;
+    	
+    	if(flag) {
+    		for (Entry<String, Set<Function>> entry : mm.getFunctionDeclarations()
+        			.entrySet()) {
+    			String predicate = "hasFunctionDec";
+        		String object = entry.getKey();
+        		_addRelations(rdfModel, subject, predicate, object, true); // model hasFunction function
+        		Resource inputNode = vf.createBNode();
+        		rdfModel.subject(prefix + ":" + object).add(prefix + ":hasRange", inputNode); // function hasRange _blankNode
+        		List<Literal> inputs = new ArrayList<>();
+        		List<Literal> outputs = new ArrayList<>();
+        		Set<Function> megaRl = entry.getValue();
+        		for (Function i : megaRl) {
+        			for (String x : i.getInputs()) {
+        				inputs.add(vf.createLiteral(x));
+        			}
+        			for (String z : i.getOutputs()) {
+        				outputs.add(vf.createLiteral(z));
+        			}
+        		}
+        		Model inputsMod = RDFCollections.asRDF(inputs, inputNode, new LinkedHashModel());
+        		for (Statement s : inputsMod) {
+        			rdfModel.subject(s.getSubject()).add(s.getPredicate(), s.getObject());
+        		}
+        		Resource outputNode = vf.createBNode();
+        		rdfModel.subject(prefix + ":" + object).add(prefix + ":hasDomain", outputNode); // function hasDomain _blankNode
+        		Model outputsMod = RDFCollections.asRDF(outputs, outputNode, new LinkedHashModel());
+        		for (Statement s : outputsMod) {
+        			rdfModel.subject(s.getSubject()).add(s.getPredicate(), s.getObject());
+        		}
+        	}
+        	System.out.println("done adding function declarations");
+    	} else {
+    		for (Entry<String, Set<Function>> entry : mm.getFunctionApplications().entrySet()) {
+    			String predicate = "hasFunctionApp";
+        		String object = entry.getKey();
+        		_addRelations(rdfModel, subject, predicate, object, true); // model hasFunction function
+        		Resource inputNode = vf.createBNode();
+        		rdfModel.subject(prefix + ":" + object).add(prefix + ":hasRange", inputNode); // function hasRange _blankNode
+        		List<Literal> inputs = new ArrayList<>();
+        		List<Literal> outputs = new ArrayList<>();
+        		Set<Function> megaRl = entry.getValue();
+        		for (Function i : megaRl) {
+        			for (String x : i.getInputs()) {
+        				inputs.add(vf.createLiteral(x));
+        			}
+        			for (String z : i.getOutputs()) {
+        				outputs.add(vf.createLiteral(z));
+        			}
+        		}
+        		Model inputsMod = RDFCollections.asRDF(inputs, inputNode, new LinkedHashModel());
+        		for (Statement s : inputsMod) {
+        			rdfModel.subject(s.getSubject()).add(s.getPredicate(), s.getObject());
+        		}
+        		Resource outputNode = vf.createBNode();
+        		rdfModel.subject(prefix + ":" + object).add(prefix + ":hasDomain", outputNode); // function hasDomain _blankNode
+        		Model outputsMod = RDFCollections.asRDF(outputs, outputNode, new LinkedHashModel());
+        		for (Statement s : outputsMod) {
+        			rdfModel.subject(s.getSubject()).add(s.getPredicate(), s.getObject());
+        		}
+        	}
+        	System.out.println("done adding function applications");
+    	}
+    	
+    }
+
+    private static void _addRelations(ModelBuilder rdfModel, String subject, String predicate, String object, boolean flag) {
+		if (flag) {
+			ValueFactory vf = SimpleValueFactory.getInstance();
+			IRI object2 = vf.createIRI(namespace + object);
+			IRI subject2 = vf.createIRI(namespace + subject);
+			IRI predicate2 = vf.createIRI(namespace + predicate);
+			rdfModel.subject(subject2).add(predicate2, object2);
+
+		} else {
+			rdfModel.subject(prefix + ":" + subject).add(prefix + ":" + predicate, object);
+		}	
+    }
+
 	private static void printOutRDFModel(Model theRDFModel, String filenm) {
     	try{
     	    PrintWriter writer = new PrintWriter(filenm, "UTF-8");
@@ -239,13 +298,6 @@ public class ModelRDF {
     	}
     }
 	
-	/**
-	 * executing SELECT queries
-	 * @param selectQuery
-	 * @throws RDFParseException
-	 * @throws RepositoryException
-	 * @throws IOException
-	 */
     private static void selectRDF(String selectQuery) throws RDFParseException, RepositoryException, IOException {
     	// Create a new Repository, and a database implementation that stores everything in main memory
     	Repository db = new SailRepository(new MemoryStore());
@@ -273,13 +325,6 @@ public class ModelRDF {
     	}
 	}
     
-    /**
-     * executing UPDATE queries
-     * @param updateQuery
-     * @throws RDFParseException
-     * @throws RepositoryException
-     * @throws IOException
-     */
     private static void updateRDF(String updateQuery, String filenm) throws RDFParseException, RepositoryException, IOException {
     	Repository db = new SailRepository(new MemoryStore());
     	db.initialize();
@@ -306,11 +351,5 @@ public class ModelRDF {
     	}
 	}    
 }
-// XML
-// https://en.wikipedia.org/wiki/XML/
 // SELECT ?x ?y WHERE { ?x XML:implements ?y }
 // INSERT {?x rdfs:label ?y . } WHERE {?x XML:implements ?y }
-
-
-
-
