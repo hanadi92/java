@@ -1,0 +1,1 @@
+SELECT ?x ?y WHERE { ?x <MySQL:hasRole> ?y }
