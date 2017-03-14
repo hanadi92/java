@@ -8,6 +8,7 @@ package modelrdf;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -32,6 +33,7 @@ import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.query.Update;
+import org.eclipse.rdf4j.query.resultio.text.csv.SPARQLResultsCSVWriter;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
@@ -54,7 +56,7 @@ public class ModelRDF {
 
 	public static String prefix = "megal";
 	public static String namespace = "http://megal.org/";
-	public static String fileName;
+	public static final String fileName = "Megals.ttl";
 	public static String query;
 	public static String updateFile;
 
@@ -63,41 +65,45 @@ public class ModelRDF {
 		if (1 < args.length) {
 			f = new File(args[0]);
 			if (!f.exists()) {
-				System.err
-						.println("The file '" + args[1] + "' does not exist.");
+				System.err.println("The file '" + args[1] + "' does not exist.");
 				return;
 			}
-			// create an empty RDF model
-			ModelBuilder RdfModel = createRDFModel(prefix, namespace);
+			
+			// if megals.ttl exists then just execute queries else create it
+			File varTmpDir = new File("Megals.ttl");
+			if(!varTmpDir.exists()) {
+				System.out.println("megals.ttl does not exist");
+				// create an empty RDF model
+				ModelBuilder RdfModel = createRDFModel(prefix, namespace);
 
-			// get all mega model paths
-			List<String> modelNames = getAllModels("../models");
+				// get all mega model paths
+				List<String> modelNames = getAllModels("../models");
 
-			// create mega models and fill RDF with relations
-			for (String m : modelNames) {
-				String[] strings = m.split("/");
-				String[] parts = strings[strings.length - 1].split(Pattern
-						.quote("."));
-				String moduleName = parts[0];
-				prefix = moduleName;
-				namespace = "http://" + moduleName + ".org/";
-				MegaModel megaModel = createMegaModel(m);
+				// create mega models and fill RDF with relations
+				for (String m : modelNames) {
+					String[] strings = m.split("/");
+					String[] parts = strings[strings.length - 1].split(Pattern
+							.quote("."));
+					String moduleName = parts[0];
+					prefix = moduleName;
+					namespace = "http://" + moduleName + ".org/";
+					MegaModel megaModel = createMegaModel(m);
 
-				extractRelationshipInstance(megaModel, RdfModel);
-				extractInstanceOf(megaModel, RdfModel);
-				extractRelationshipDeclaration(megaModel, RdfModel);
-				extractLinkMap(megaModel, RdfModel);
-				extractSubtypes(megaModel, RdfModel);
-				extractFunctions(moduleName, megaModel, RdfModel, true);
-				extractFunctions(moduleName, megaModel, RdfModel, false);
+					extractRelationshipInstance(megaModel, RdfModel);
+					extractInstanceOf(megaModel, RdfModel);
+					extractRelationshipDeclaration(megaModel, RdfModel);
+					extractLinkMap(megaModel, RdfModel);
+					extractSubtypes(megaModel, RdfModel);
+					extractFunctions(moduleName, megaModel, RdfModel, true);
+					extractFunctions(moduleName, megaModel, RdfModel, false);
+				}
+
+				// build the rdf model
+				Model modelRDF = RdfModel.build();
+
+				// printing out the RDF Model in a file
+				printOutRDFModel(modelRDF, fileName);
 			}
-
-			// build the rdf model
-			Model modelRDF = RdfModel.build();
-
-			// printing out the RDF Model in a file
-			fileName = "Megals.ttl";
-			printOutRDFModel(modelRDF, fileName);
 			
 			query = readQueryFile(f);
 			if (args[1].contains("select")) {
@@ -237,13 +243,10 @@ public class ModelRDF {
 					.getFunctionDeclarations().entrySet()) {
 				String predicate = "hasFunctionDec";
 				String object = entry.getKey();
-				_addRelations(rdfModel, subject, predicate, object, true); // model
-																			// hasFunction
-																			// function
+				_addRelations(rdfModel, subject, predicate, object, true); // model hasFunction function
 				Resource inputNode = vf.createBNode();
 				rdfModel.subject(prefix + ":" + object).add(
-						prefix + ":hasRange", inputNode); // function hasRange
-															// _blankNode
+						prefix + ":hasRange", inputNode); // function hasRange _blankNode
 				List<Literal> inputs = new ArrayList<Literal>();
 				List<Literal> outputs = new ArrayList<Literal>();
 				Set<Function> megaRl = entry.getValue();
@@ -263,9 +266,7 @@ public class ModelRDF {
 				}
 				Resource outputNode = vf.createBNode();
 				rdfModel.subject(prefix + ":" + object).add(
-						prefix + ":hasDomain", outputNode); // function
-															// hasDomain
-															// _blankNode
+						prefix + ":hasDomain", outputNode); // function hasDomain _blankNode
 				Model outputsMod = RDFCollections.asRDF(outputs, outputNode,
 						new LinkedHashModel());
 				for (Statement s : outputsMod) {
@@ -279,13 +280,10 @@ public class ModelRDF {
 					.getFunctionApplications().entrySet()) {
 				String predicate = "hasFunctionApp";
 				String object = entry.getKey();
-				_addRelations(rdfModel, subject, predicate, object, true); // model
-																			// hasFunction
-																			// function
+				_addRelations(rdfModel, subject, predicate, object, true); // model hasFunction function
 				Resource inputNode = vf.createBNode();
 				rdfModel.subject(prefix + ":" + object).add(
-						prefix + ":hasRange", inputNode); // function hasRange
-															// _blankNode
+						prefix + ":hasRange", inputNode); // function hasRange _blankNode
 				List<Literal> inputs = new ArrayList<Literal>();
 				List<Literal> outputs = new ArrayList<Literal>();
 				Set<Function> megaRl = entry.getValue();
@@ -305,9 +303,7 @@ public class ModelRDF {
 				}
 				Resource outputNode = vf.createBNode();
 				rdfModel.subject(prefix + ":" + object).add(
-						prefix + ":hasDomain", outputNode); // function
-															// hasDomain
-															// _blankNode
+						prefix + ":hasDomain", outputNode); // function hasDomain _blankNode
 				Model outputsMod = RDFCollections.asRDF(outputs, outputNode,
 						new LinkedHashModel());
 				for (Statement s : outputsMod) {
@@ -328,7 +324,6 @@ public class ModelRDF {
 			IRI subject2 = vf.createIRI(namespace + subject);
 			IRI predicate2 = vf.createIRI(namespace + predicate);
 			rdfModel.subject(subject2).add(predicate2, object2);
-
 		} else {
 			rdfModel.subject(prefix + ":" + subject).add(
 					prefix + ":" + predicate, object);
@@ -342,33 +337,26 @@ public class ModelRDF {
 			System.out.println("Triple store created in: " + filenm);
 			writer.close();
 		} catch (IOException e) {
-			System.out
-					.println("Something went wrong while making the triple store ttl file.\n");
+			System.out.println("Something went wrong while making the triple store ttl file.\n");
 		}
 	}
 
 	private static void selectRDF(String selectQuery) throws RDFParseException,
 			RepositoryException, IOException {
-		// Create a new Repository, and a database implementation that stores
-		// everything in main memory
+		// Create a new Repository, and a database implementation that stores everything in main memory
 		Repository db = new SailRepository(new MemoryStore());
 		db.initialize();
 		try (RepositoryConnection conn = db.getConnection()) {
 			try (InputStream input = new FileInputStream(fileName)) {
 				conn.add(input, "", RDFFormat.TURTLE);
 			}
+			FileOutputStream out = new FileOutputStream("selectResults");
 			String queryString = "prefix " + prefix + ": " + "<" + namespace
 					+ ">\n";
 			queryString += selectQuery;
-			TupleQuery query = conn.prepareTupleQuery(queryString);
-			try (TupleQueryResult result = query.evaluate()) {
-				System.out.println("\nThe Query:\n" + queryString + "\n");
-				while (result.hasNext()) {
-					BindingSet solution = result.next();
-					System.out.println(solution);
-				}
-				System.out.println("end of query results\n");
-			}
+			conn.prepareTupleQuery(queryString).evaluate(new SPARQLResultsCSVWriter(System.out));
+			conn.prepareTupleQuery(queryString).evaluate(new SPARQLResultsCSVWriter(out));
+			System.out.println("Check file \"selectResults\" for results");
 		} finally {
 			db.shutDown();
 		}

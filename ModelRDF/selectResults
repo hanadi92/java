@@ -1,0 +1,12 @@
+x,y
+MySQL:?createStmt,Schema
+MySQL:?databasec0,Database
+MySQL:?databasec1,Database
+MySQL:?databaser,Database
+MySQL:?databaseu0,Database
+MySQL:?databaseu1,Database
+MySQL:?query,Query
+MySQL:?resultTable,Value
+MySQL:?updateStmt,TransformationRule
+MySQL:Artifact,Role
+MySQL:adobePDFSpec,Specification
